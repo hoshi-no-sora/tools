@@ -1,0 +1,84 @@
+#!/bin/bash
+
+function _m_option_() {
+cat << EOF 
+%%%-m の各種モジュール機能
+TCP通信状態による通信制御（-m stateモジュール）
+-m state --state [コネクションの状態]
+	3WAYハンドシェイクの流れとコネクションの状態
+	開始時　SYNパケット→コネクションNEW　SYN/ACKパケット→コネクションESTABLISHED　ACKパケット
+	終了時　FIN/ACKパケット→コネクションESTABLISHED　お互いにACK
+	　　　　上記後、相手側からもFIN/ACKパケット→コネクションESTABLISHED　ACKパケット→コネクションCLOSED
+	[コネクションの状態]
+	NEW		コネクション接続要求パケット。ここでアクセスを制御する
+	ESTABLISHED	コネクションが確立している状態で交換されるパケット。基本的に許可する
+	RELATED		すでにESTABLISHEDになっているコネクションが別のコネクションを発生させた場合RELATEDになる
+			ICMPエラーやFTPデータコネクションのパケットがおそらくこれに該当する。基本的に許可する
+	INVALID		コネクションの接続が無い状態でのパケット(無効なパケット)基本的にDROPすべき物
+	こちらが詳しい
+	http://www.asahi-net.or.jp/~aa4t-nngk/ipttut/output/userlandstates.html
+	例 iptables -A INPUT -m state --state RELATED,ESTABLISHED -j ACCEPT
+
+-m iprange (IP rangeモジュール）
+	--src-range	送信元。192.168.1.10-192.168.1.50　このようにIPの範囲で指定できる	
+	--dst-range	送信先。-m iprange ! [IPレンジ]　!をつけるとそれ以外になる
+
+-m limit(リミットモジュール)
+	※hashlimitとは違い、全体の設定なのでIPアドレス毎等で制限をかけたい場合は、hashlimitを使う
+	--limit 1/s	リミット後1秒に1度だけ許可。単位は/second /minute /hour /day がある
+	--limit-burst 5	5回まで無条件に許可する。--limitで指定した時間が過ぎるとカウントは1ずつ減っていく
+	[例] iptables -A INPUT -p icmp --icmp-type echo-request -m limit --limit 1/m --limit-burst 5 -j ACCEPT
+		（5回のpingを許可した後は1分に1回だけpingを許可。(pingが行われなければ1分に1ずつ5回まで回復する)）
+-m hashlimit（宛先IP、送信元IP、宛先ポート、送信元ポートを1つのハッシュテーブルに載せた物の単位でリミットを掛ける）
+	--hashlimit 1/s		limitモジュールのlimitと同じ
+	--hashlimit-burst 値	limitモジュールのlimit-burstと同じ
+	--hashlimit-mode dstip 	どの値を使用するか？カンマ区切りで複数指定も可能
+				dstip (宛先IP), srcip (送信元IP), dstport (宛先ポート), srcport (送信元ポート)
+	--hashlimit-name 名称	そのハッシュを利用する際のハッシュ管理テーブルの名称を指定する。（必須項目）
+				ここで指定したものは /proc/net/ipt_hashlimit ディレクトリで見ることができる
+	--hashlimit-htable-max 値		ハッシュテーブルエントリの最大数を設定する
+	--hashlimit-htable-gcinterval 値	ガーベジコレクション(データの整理？)の実行頻度。単位はミリ秒。
+	--hashlimit-htable-expire 値		使われなくなったエントリを削除する。単位はミリ秒。上記よりも値は大きくする事
+	[例]　iptables -A INPUT -p icmp --icmp-type echo-request -m hashlimit --hashlimit-name table_icmp --hashlimit 1/m --hashlimit-burst 5 --hashlimit-mode srcip -j ACCEPT
+		(srcip毎に5回のpingを許可した後は1分に1回だけpingを許可。ハッシュテーブル名はtable_icmpで管理。)
+-m recent ( recentモジュール：前に行われたマッチを手掛かりにパケットを選定できる。ブルートフォース対策等にも有効)
+	--name リスト名		使用するリストの名前を指定する
+	--set			リストにエントリを追加する。リスト上のエントリにはタイムスタンプ及びパケット送信元IPが記録される
+	--rcheck		--nameで指定のリストにそのパケット送信元IPが登録されているかをチェックする
+	--update		送信元IPがリストとあえばマッチし、最終観測時間を更新する
+	--remove		送信元IPがリストとあえばマッチし、該当エントリを削除する
+	--seconds 秒		--rcheckか--updateと併用するオプション。最終観測時間が指定秒数以上に古ければ偽、指定時間内なら真
+	--hitcount 回数		--rcheckか--updateと併用するオプション。指定回数以上ならマッチ。--secondsと併用する場合が多い
+	--rttl			最近リストに追加されたIPと今のIPのパケットのTTL値をマッチし、同じかどうかをチェックする
+				TTLが違えばルータのホップ数が違うという事になり、送信元IPを偽証しているか？ある程度判断ができる
+	--rsource		(デフォルトなのでわざわざ指定はしない)送信元IPとポート番号をリストへ保存する
+	--rdest			上記の反対で宛先IPとポート番号をリストへ保存する
+	[例] 過去60秒間に10回以上のSSH接続を試みた場合そのIPを拒否する
+	-A INPUT -p tcp --dport 22 -m state --state NEW -m recent --set --name SSH
+	-A INPUT -p tcp --dport 22 -m state --state NEW -m recent --update --seconds 60 --hitcount 10 --rttl --name SSH -j DROP 
+
+	[例] 1秒間に20回以上DNSポートにアクセスがあった場合はログに出力する
+	-A INPUT -p udp -m udp --dport 53 -m recent --set --name dnsoverload
+	-A INPUT -p udp -m udp --dport 53 -m recent --rcheck --seconds 1 --hitcount 20 --name dnsoverload -j LOG
+EOF
+}
+
+function _default_setting_show_() {
+cat << EOF 
+%デフォルトの状態
+# Firewall configuration written by system-config-firewall
+# Manual customization of this file is not recommended.
+*filter
+:INPUT ACCEPT [0:0]
+:FORWARD ACCEPT [0:0]
+:OUTPUT ACCEPT [0:0]
+-A INPUT -m state --state ESTABLISHED,RELATED -j ACCEPT	すでに接続の確立したパケットは許可
+-A INPUT -p icmp -j ACCEPT				ICMPは許可
+-A INPUT -i lo -j ACCEPT				送信元がloopbackの物は全て許可
+-A INPUT -m state --state NEW -m tcp -p tcp --dport 22 -j ACCEPT	sshに対して新しい接続を許可
+-A INPUT -j REJECT --reject-with icmp-host-prohibited	上記以外のパケットは拒否しicmp-host-prohibitedを返す
+-A FORWARD -j REJECT --reject-with icmp-host-prohibited	転送のパケットは全て拒否しicmp-host-prohibitedを返す
+COMMIT
+EOF
+}
+
