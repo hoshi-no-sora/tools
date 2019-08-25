@@ -21,7 +21,7 @@ SERVICE_COMMAND="service"
 
 
 # setting for iptables_usage
-PARENTDIR="${HOME}/Tools/iptables/"
+PARENTDIR="${HOME}/Tools/iptables"
 SUBDIR="${PARENTDIR}/sub"
 #################################################
 # function
@@ -83,6 +83,8 @@ function _ipt_restart_() {
 #################################################
 
 source "${SUBDIR}/iptables_usage"
+#_m_option_
+#_default_setting_show_
 
 if [ -z /etc/iptables.save.old ]; then
   cp -i "${IPTCONF_PARENTDIR}/iptables.save" "${IPTCONF_PARENTDIR}/iptables.save.old"
