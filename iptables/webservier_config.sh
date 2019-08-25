@@ -80,6 +80,51 @@ function _ipt_restart_() {
 #     /etc/init.d/iptables restart &&
 #     return 0
 # }
+
+
+function _logging_() {
+# ============ logging ============ #
+#"$ipt" -N LOGGING
+#"$ipt" -A LOGGING -j LOG --log-level warning --log-prefix "DROP:" -m limit
+#"$ipt" -A LOGGING -j DROP
+#"$ipt" -A INPUT   -j LOGGING
+#"$ipt" -A OUTPUT  -j LOGGING
+# ============ logging ============ #
+
+# ========= input logging ========= #
+iptables -N IN_LOGGING
+iptables -A IN_LOGGING -j LOG --log-level warning --log-prefix "Dropped by INPUT: "
+iptables -A IN_LOGGING -j DROP
+iptables -A INPUT -j IN_LOGGING
+# ========= input logging ========= #
+
+# ========= output logging ======== #
+iptables -N OUT_LOGGING
+iptables -A OUT_LOGGING -j LOG --log-level warning --log-prefix "Dropped by OUTPUT: "
+iptables -A OUT_LOGGING -j DROP
+iptables -A OUTPUT -j OUT_LOGGING
+# ========= output logging ======== #
+}
+
+# log rotation for defend the enlargement of log files
+function _log_rotate_() {
+cat > /etc/logrotate.d/iptables << EOF
+/var/log/iptables/*.log {
+        daily
+        rotate 31
+        missingok
+        notifempty
+        compress
+        delaycompress
+        dateext
+        create 644 syslog adm
+        sharedscripts
+        postrotate
+                /bin/kill -HUP `cat /var/run/rsyslogd.pid 2> /dev/null` 2> /dev/null || true
+        endscript
+}
+EOF
+}
 #################################################
 
 source "${SUBDIR}/iptables_usage"
@@ -121,13 +166,6 @@ _initialize_
 #   12     => Parameter Problem       | Error
 # ================< icmp-type >================ 
 
-# ============ logging ============ #
-"$ipt" -N LOGGING
-"$ipt" -A LOGGING -j LOG --log-level warning --log-prefix "DROP:" -m limit
-"$ipt" -A LOGGING -j DROP
-"$ipt" -A INPUT   -j LOGGING
-"$ipt" -A OUTPUT  -j LOGGING
-# ============ logging ============ #
 
 # ===============================================
 # ============== [ INPUT Chain ] ================
@@ -158,18 +196,19 @@ _initialize_
 # ssh filtering (against SSH Brute Force Attack)
 _ssh_filtering_
 # [ client -> webserver ]
-"$ipt" -A INPUT  -p tcp -m state --state NEW,ESTABLISHED,RELATED -s $client -d $webserver --dport 22 -j ACCEPT
+"$ipt" -A INPUT  -p tcp -m state --state NEW,ESTABLISHED,RELATED -s $client -d $webserver --dport  22 -j ACCEPT
 
 # ========= http and https ========= #
 # [ ANY -> webserver ]
-"$ipt" -A INPUT  -p tcp -m state --state NEW,ESTABLISHED,RELATED -s $any    -d $webserver --dport 80 -j ACCEPT
+"$ipt" -A INPUT  -p tcp -m state --state NEW,ESTABLISHED,RELATED -s $any    -d $webserver --dport  80 -j ACCEPT
+"$ipt" -A INPUT  -p tcp -m state --state NEW,ESTABLISHED,RELATED -s $any    -d $webserver --dport 443 -j ACCEPT
 
 # === ALL with ESTABLISHED,RELATED ==#
 # ESTABLISHED,RELATED connection(ssh, http以外の通信が既に確立されたパケットに関しても許可)
 # (syn flugが立ったパケットに関したは、NEWでないpacketのみ通過してきている)
 "$ipt" -A INPUT -m state --state ESTABLISHED,RELATED -j ACCEPT
 
-# ============= VNC ===============
+# ============= VNC =============== #
 for portnum in $(seq ${vncbegin} ${vncend})
 do
   _vnc_accept_ ${portnum}
@@ -178,6 +217,12 @@ done
 # =========== TCP Reject =========== #
 # 113 => Ident, authentication service/identification protocol, used by IRC servers to identify users
 "$ipt" -A INPUT  -p tcp   --syn --dport 113 -j REJECT --reject-with tcp-reset
+
+# ============= FTP ================ #
+iptables -A INPUT -p tcp -d $webserver -m multiport --dport 20,21 -j DROP
+
+# ============ TELNET ============== #
+iptables -A INPUT -p tcp -d $webserver --dport 23 -j DROP
 
 
 # =========== DROP List ============ # 
@@ -238,6 +283,17 @@ done
 # ===============================================
 # ============== [ FORWARD Chain ] ==============
 # ===============================================
+#
+#
+# 
+# ===============================================
+# ============== [  ]
+# ===============================================
+
+_logging_
+
+# ===============================================
+# ===============================================
 
 ##################################################
 #################### [ End ] #####################
@@ -247,6 +303,10 @@ done
 _ipt_save_
 # iptables service restart
 _ipt_restart_
+
+
+# log rotation for defend the enlargement of log files
+_log_rotate_
 
 exit
 
