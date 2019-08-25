@@ -26,6 +26,15 @@ SUBDIR="${PARENTDIR}/sub"
 #################################################
 # function
 
+function _backup_old_iptfile_() {
+  local CURRENT_IPTFILE="${IPTCONF_PARENTDIR}/iptables.save"
+  local BACKUP_IPTFILE="${IPTCONF_PARENTDIR}/iptables.save.$(date +%Y%m%d_%H-%M-%S)"
+  
+  if [ -z /etc/iptables.save.old ]; then
+    cp -i ${CURRENT_IPTFILE} ${BACKUP_IPTFILE}
+  fi
+}
+
 function _initialize_() 
 {
     iptables --flush # initialize tables
@@ -131,9 +140,8 @@ source "${SUBDIR}/iptables_usage"
 #_m_option_
 #_default_setting_show_
 
-if [ -z /etc/iptables.save.old ]; then
-  cp -i "${IPTCONF_PARENTDIR}/iptables.save" "${IPTCONF_PARENTDIR}/iptables.save.old"
-fi
+# [ backup current iptables configuration ]
+_backup_old_iptfile_
 
 #################################################
 ################### [ Begin ] ###################
