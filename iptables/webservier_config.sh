@@ -150,6 +150,10 @@ _initialize_
 # [ webserver -> client ]
 "$ipt" -A INPUT  -p icmp --icmp-type echo-reply   -s $client -d $webserver -j ACCEPT
 
+# ===========================
+# [ ICMP ALL ACCEPT ]
+#"$ipt" -A INPUT  -p icmp -j ACCEPT
+
 # ============== ssh =============== #
 # ssh filtering (against SSH Brute Force Attack)
 _ssh_filtering_
@@ -174,6 +178,25 @@ done
 # =========== TCP Reject =========== #
 # 113 => Ident, authentication service/identification protocol, used by IRC servers to identify users
 "$ipt" -A INPUT  -p tcp   --syn --dport 113 -j REJECT --reject-with tcp-reset
+
+
+# =========== DROP List ============ # 
+# ip偽装対策1(プライベートアドレスからのパケットは破棄)
+"$ipt" -A INPUT -s 10.0.0.0/8 -j DROP
+"$ipt" -A INPUT -s 172.16.0.0/12 -j DROP
+#"$ipt" -A INPUT -s 192.168.0.0/16 -j DROP
+
+# ip偽装対策2(特殊なアドレスからのパケットを拒否)
+"$ipt" -A INPUT -s 127.0.0.0/8 -j DROP     # ローカルループバックアドレス
+"$ipt" -A INPUT -s 169.254.0.0/16 -j DROP  # ローカルアドレス
+"$ipt" -A INPUT -s 192.0.2.0/24 -j DROP    # TEST-NET
+"$ipt" -A INPUT -s 224.0.0.0/4 -j DROP     # クラスD
+"$ipt" -A INPUT -s 240.0.0.0/5 -j DROP     # クラスE
+
+# Smarf攻撃対策(ブロードキャストパケットの破棄)
+"$ipt" -A INPUT -d 0.0.0.0/8 -j DROP
+"$ipt" -A INPUT -d 255.255.255.255/32 -j DROP
+
 
 # ===============================================
 # ============== [ INPUT Chain ] ================
