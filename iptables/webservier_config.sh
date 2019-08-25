@@ -2,8 +2,8 @@
 #############################
 ######## [ Setting ] ########
 #############################
-client='192.168.10.100'
-webserver='192.168.20.200'
+client='192.168.2.30'
+webserver='192.168.2.11'
 any='0.0.0.0/0'
 
 
@@ -43,7 +43,7 @@ function _ipt_save_() {
   echo -n "Do you want to save these configuration?[yes/no]: "
   local answer
   read answer
-  if [ "${answer}" = "yes" ]
+  if [ "${answer}" = "yes" ]; then
     /sbin/iptables-save
   else
     echo -e "These configuration was NOT reflected... \n"
