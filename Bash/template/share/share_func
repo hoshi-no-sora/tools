@@ -1,0 +1,52 @@
+#!/bin/bash
+
+# [USAGE] confirmation [command]
+confirmation() {
+  local command="$1"
+  echo -n "continue?[y/n]: "
+  local answer
+  read answer
+  if [ ${answer} = "y" ]; then
+    eval "${command}"
+  else
+    echo -e "Stoped...\n"; exit
+  fi
+}
+
+# [USAGE]: argument_check $(basename $0)
+argument_check() {
+  local args=$@
+  local argnum=$#
+  local prt_shell_name=$1        # parent .sh filename
+
+  case "${1}" in
+      "--status")
+                 local status
+                 status=$(ps -ef | grep ${prt_shell_name} | grep -v grep)
+                 echo -e "${status}\n"                  
+                 ;;
+      
+      "--help"|*) 
+                 help; exit 
+                 ;;
+  esac
+}
+
+
+# # [ display help when no argument or '--help' ] 
+# #   (usage) ARGNUM=$#; helpInstruction [arg num] [first arg]
+# function helpInstruction() {
+#   local argnum=$1
+#   local arg1=$2
+#   # --- [ Help ] --- show USAGE
+#   if [ "${argnum}" -eq 0 ] \
+#   || [ "${argnum}" == 1 -a "${arg1}" = '--help' ]; then
+#   	printUsage; exit
+#   fi
+# }
+
+
+
+
+
+

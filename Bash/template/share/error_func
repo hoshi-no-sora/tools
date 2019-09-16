@@ -1,0 +1,32 @@
+#!/bin/bash
+
+#=======================
+error() {
+	local status=$?
+	echo "$@" 1>&2
+	return ${status} 
+}
+
+
+abort() {
+	local status=$?
+	[ -z ${ERRLOGFILE} ] && export ERRLOGFILE="${HOME}/error.log"
+  #---------------------------------
+  #  date -u >> ${ERRLOGFILE}
+    echo -e "$@\n" 1>&2 | tee -a ${ERRLOGFILE}
+    echo "exit status: ${status}" >> ${ERRLOGFILE}
+    exit 1
+}
+
+#=======================
+export -f error
+export -f abort
+#=======================
+
+
+
+
+
+################################
+# [ref]
+# trap 'echo "ERROR: line no = $LINENO, exit status = $?" >&2; exit 1' ERR
