@@ -47,6 +47,9 @@ argument_check() {
 
 
 
-
-
+# [ cleanup for exit ] --- trap "cleanup ${file1} ${file2}" EXIT
+cleanup() {
+  # \rm ${1}
+  # \rm ${2}
+}
 

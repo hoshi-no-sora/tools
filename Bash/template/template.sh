@@ -37,7 +37,8 @@ LOGDIR=
 #===============================================
 #========== [ Environmental Setting ] ==========
 #===============================================
-set -e -o pipefail -o noclobber -o ignoreeof
+# set -e -o pipefail -o noclobber -o ignoreeof
+set -e -E -o pipefail -o noclobber -o ignoreeof
 export MYTOOLDIR="${HOME}/TOOLS/Bash"
 source "${MYTOOLDIR}/share/error_func"
 source "${MYTOOLDIR}/share/share_func"
@@ -75,6 +76,11 @@ function () {
 #===============================================
 #========= [ Definition of function ] =========#
 #===============================================
+
+######################################################
+trap 'echo "ERROR: line no = $LINENO, exit status = $?" >&2; exit 1' ERR
+# trap "cleanup ${file1} ${file2}" EXIT
+
 
 # [ processing or display help ]
 argument_check $(basename $0)   # inside share_func 
