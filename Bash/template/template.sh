@@ -19,14 +19,21 @@
 #
 # [ Info ]
 #
-# Not Set "LOGFILE" variable => ${HOME}/program.log
+# Not Set "ERRLOGFILE" variable => ${HOME}/error.log
 # 
 #===============================================
 
 #==============================================#
 #=== [ Variable and Defalut Value Setting ] ===#
 #==============================================#
-LOGDIR=
+# LOGDIR=
+# LOGFILENAME=
+# LOGFILE="${LOGDIR}/${LOGFILENAME}"
+#---------------------------------
+ERRLOGDIR="${HOME}"
+ERRLOGFILENAME="error.log"
+ERRLOGFILE="${ERRLOGDIR}/${ERRLOGFILENAME}"
+#---------------------------------
 
 #==============================================#
 #=== [ Variable and Defalut Value Setting ] ===#
@@ -37,8 +44,8 @@ LOGDIR=
 #===============================================
 #========== [ Environmental Setting ] ==========
 #===============================================
-# set -e -o pipefail -o noclobber -o ignoreeof
-set -e -E -o pipefail -o noclobber -o ignoreeof
+# set -u -e -o pipefail -o noclobber -o ignoreeof
+set -u -e -E -o pipefail -o noclobber -o ignoreeof
 export MYTOOLDIR="${HOME}/TOOLS/Bash"
 source "${MYTOOLDIR}/share/error_func"
 source "${MYTOOLDIR}/share/share_func"
@@ -78,7 +85,7 @@ function () {
 #===============================================
 
 ######################################################
-trap 'echo "ERROR: line no = $LINENO, exit status = $?" >&2; exit 1' ERR
+# trap 'echo "ERROR: line no = $LINENO, exit status = $?" >&2; exit 1' ERR
 # trap "cleanup ${file1} ${file2}" EXIT
 
 
